@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Obra Maestra de Arte Generativa</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/p5.js"></script>
+  </head>
+  <body>
+    <script>
+      let t = 0; // Variable de tiempo para animar el ruido
+
+      function setup() {
+        createCanvas(windowWidth, windowHeight);
+        colorMode(HSB, 360, 100, 100, 100);
+        noFill();
+        background(0);
+      }
+
+      function draw() {
+        // Fondo con transparencia para crear efecto de estela
+        background(0, 0, 0, 10);
+        translate(width / 2, height / 2);
+
+        // Ajusta la escala del ruido según la posición horizontal del mouse
+        let noiseScale = map(mouseX, 0, width, 0.5, 3);
+
+        // Define el color dinámico basado en el tiempo y el ruido
+        let hueVal = noise(t) * 360;
+        stroke(hueVal, 80, 90, 80);
+        strokeWeight(2);
+
+        beginShape();
+        // Genera la forma con ruido Perlin para cada ángulo
+        for (let angle = 0; angle < TWO_PI; angle += 0.01) {
+          let n = noise(cos(angle) * noiseScale, sin(angle) * noiseScale, t);
+          let r = map(n, 0, 1, 150, 350);
+          let x = r * cos(angle);
+          let y = r * sin(angle);
+          vertex(x, y);
+        }
+        endShape(CLOSE);
+
+        // Incrementa el tiempo para la animación
+        t += 0.005;
+      }
+
+      // Asegura que el lienzo se ajuste al cambiar el tamaño de la ventana
+      function windowResized() {
+        resizeCanvas(windowWidth, windowHeight);
+      }
+    </script>
+  </body>
+</html>
