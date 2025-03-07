@@ -1,0 +1,128 @@
+// Escena, cámara y renderizador
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(
+  75,
+  window.innerWidth / window.innerHeight,
+  0.1,
+  1000
+);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+// Controles de órbita para interacción
+const controls = new OrbitControls(camera, renderer.domElement);
+camera.position.z = 5;
+
+// Luz
+const light = new THREE.PointLight(0xffffff, 1, 100);
+light.position.set(5, 5, 5);
+scene.add(light);
+
+// Esfera base con geometría personalizable
+const geometry = new THREE.SphereGeometry(1, 64, 64);
+const material = new THREE.ShaderMaterial({
+  uniforms: {
+    time: { value: 0.0 },
+    mouse: { value: new THREE.Vector2() },
+  },
+  vertexShader: `
+        varying vec3 vNormal;
+        varying vec2 vUv;
+        uniform float time;
+        uniform vec2 mouse;
+
+        float noise(vec3 p) {
+            return sin(p.x * 10.0 + time) * sin(p.y * 10.0 + time) * sin(p.z * 10.0 + time) * 0.1;
+        }
+
+        void main() {
+            vNormal = normal;
+            vUv = uv;
+            vec3 pos = position + normal * noise(position + vec3(mouse.x, mouse.y, 0.0));
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+        }
+    `,
+  fragmentShader: `
+        varying vec3 vNormal;
+        varying vec2 vUv;
+        uniform float time;
+
+        void main() {
+            vec3 color = vec3(0.1, 0.5, 0.8) * (0.5 + 0.5 * sin(time + vUv.y * 10.0));
+            gl_FragColor = vec4(color * abs(vNormal), 1.0);
+        }
+    `,
+  wireframe: false,
+});
+
+const sphere = new THREE.Mesh(geometry, material);
+scene.add(sphere);
+
+// Sistema de partículas
+const particleCount = 500;
+const particlesGeometry = new THREE.BufferGeometry();
+const positions = new Float32Array(particleCount * 3);
+const velocities = new Float32Array(particleCount * 3);
+
+for (let i = 0; i < particleCount; i++) {
+  positions[i * 3] = (Math.random() - 0.5) * 10;
+  positions[i * 3 + 1] = (Math.random() - 0.5) * 10;
+  positions[i * 3 + 2] = (Math.random() - 0.5) * 10;
+  velocities[i * 3] = (Math.random() - 0.5) * 0.01;
+  velocities[i * 3 + 1] = (Math.random() - 0.5) * 0.01;
+  velocities[i * 3 + 2] = (Math.random() - 0.5) * 0.01;
+}
+
+particlesGeometry.setAttribute(
+  "position",
+  new THREE.BufferAttribute(positions, 3)
+);
+const particlesMaterial = new THREE.PointsMaterial({
+  color: 0x88ccff,
+  size: 0.05,
+});
+const particles = new THREE.Points(particlesGeometry, particlesMaterial);
+scene.add(particles);
+
+// Mouse tracking
+const mouse = new THREE.Vector2();
+window.addEventListener("mousemove", (event) => {
+  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+});
+
+// Animación
+let time = 0;
+function animate() {
+  requestAnimationFrame(animate);
+  time += 0.02;
+
+  // Actualizar esfera
+  sphere.material.uniforms.time.value = time;
+  sphere.material.uniforms.mouse.value = mouse;
+
+  // Actualizar partículas
+  const positions = particles.geometry.attributes.position.array;
+  for (let i = 0; i < particleCount; i++) {
+    positions[i * 3] += velocities[i * 3];
+    positions[i * 3 + 1] += velocities[i * 3 + 1];
+    positions[i * 3 + 2] += velocities[i * 3 + 2];
+
+    // Rebotar partículas si salen del rango
+    if (Math.abs(positions[i * 3]) > 5) velocities[i * 3] *= -1;
+    if (Math.abs(positions[i * 3 + 1]) > 5) velocities[i * 3 + 1] *= -1;
+    if (Math.abs(positions[i * 3 + 2]) > 5) velocities[i * 3 + 2] *= -1;
+  }
+  particles.geometry.attributes.position.needsUpdate = true;
+
+  renderer.render(scene, camera);
+}
+animate();
+
+// Redimensionamiento
+window.addEventListener("resize", () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
